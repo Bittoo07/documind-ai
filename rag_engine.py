@@ -9,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import OpenAIEmbeddings
 from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
 load_dotenv()
 
 
@@ -43,7 +44,8 @@ def create_vector_store(chunks, save_path="faiss_index"):
 
 
 def load_vector_store(save_path="faiss_index"):
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    # embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.load_local(
         save_path,
         embeddings,
