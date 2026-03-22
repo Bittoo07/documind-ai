@@ -2,14 +2,13 @@ import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_groq import ChatGroq
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import OpenAIEmbeddings
-from langchain_groq import ChatGroq
-from langchain_huggingface import HuggingFaceEmbeddings
+
 load_dotenv()
 
 
@@ -18,7 +17,6 @@ def load_document(file_path: str):
         loader = PyPDFLoader(file_path)
     else:
         loader = TextLoader(file_path, encoding="utf-8")
-
     documents = loader.load()
     print(f"Loaded {len(documents)} pages from: {file_path}")
     return documents
@@ -36,7 +34,7 @@ def split_documents(documents):
 
 
 def create_vector_store(chunks, save_path="faiss_index"):
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_documents(chunks, embeddings)
     vector_store.save_local(save_path)
     print(f"Vector store saved to '{save_path}/' folder")
@@ -44,7 +42,6 @@ def create_vector_store(chunks, save_path="faiss_index"):
 
 
 def load_vector_store(save_path="faiss_index"):
-    # embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.load_local(
         save_path,
@@ -56,13 +53,11 @@ def load_vector_store(save_path="faiss_index"):
 
 
 def build_qa_chain(vector_store):
-    # Step 1 — retriever finds top 4 matching chunks
     retriever = vector_store.as_retriever(
         search_type="similarity",
         search_kwargs={"k": 4}
     )
 
-    # Step 2 — prompt tells GPT exactly what to do
     prompt = PromptTemplate.from_template("""
 You are a helpful assistant that answers questions
 based strictly on the document provided below.
@@ -79,18 +74,14 @@ User question: {question}
 
 Your answer:""")
 
-    # Step 3 — the LLM that generates the answer
     llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0
-)
+        model="llama-3.3-70b-versatile",
+        temperature=0
+    )
 
-
-    # Step 4 — helper function to join all chunks into one string
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    # Step 5 — chain: question → retrieve → format → prompt → LLM → answer
     chain = (
         {
             "context": retriever | format_docs,
